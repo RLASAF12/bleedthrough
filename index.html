@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLEEDTHROUGH — Agent Failure Series #20</title>
+<style>
+  :root {
+    --bg: #07090f;
+    --bg2: #0d1117;
+    --bg3: #111827;
+    --border: #1e293b;
+    --border2: #2d3748;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #00e676;
+    --red: #ff4d4d;
+    --orange: #ff9800;
+    --blue: #4facfe;
+    --purple: #a78bfa;
+    --yellow: #fbbf24;
+    --alice: #3b82f6;
+    --bob: #10b981;
+    --carol: #f59e0b;
+    --bleed: #ff4d4d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  /* ── HEADER ── */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .series-badge {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid var(--purple);
+    color: var(--purple);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .title-block h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .title-block .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .bleed-title { color: var(--bleed); }
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .dot.red { background: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main { padding: 20px 24px; }
+
+  /* ── EXPLANATION BOX ── */
+  .explanation {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--purple);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .exp-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .exp-text p { color: #94a3b8; font-size: 12px; line-height: 1.6; }
+  .exp-text strong { color: var(--text); }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary {
+    background: var(--blue);
+    color: #000;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+  }
+  .btn-danger:hover { opacity: 0.85; }
+  .btn-warning {
+    background: var(--orange);
+    color: #000;
+  }
+  .btn-warning:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mode-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 4px;
+  }
+  .mode-btn {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--muted);
+    background: transparent;
+    font-weight: 500;
+  }
+  .mode-btn.active {
+    background: var(--bg2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .mode-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── THREE USERS GRID ── */
+  .users-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .user-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 340px;
+  }
+  .user-panel.bleeding {
+    border-color: var(--bleed);
+    box-shadow: 0 0 12px rgba(255,77,77,0.15);
+  }
+  .user-header {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .user-info { display: flex; align-items: center; gap: 10px; }
+  .user-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .av-alice { background: rgba(59,130,246,0.2); border: 1px solid var(--alice); color: var(--alice); }
+  .av-bob   { background: rgba(16,185,129,0.2); border: 1px solid var(--bob); color: var(--bob); }
+  .av-carol { background: rgba(245,158,11,0.2); border: 1px solid var(--carol); color: var(--carol); }
+
+  .user-name { font-weight: 600; font-size: 12px; }
+  .user-email { font-size: 10px; color: var(--muted); }
+
+  .session-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .st-alice { color: var(--alice); border-color: var(--alice); background: rgba(59,130,246,0.08); }
+  .st-bob   { color: var(--bob);   border-color: var(--bob);   background: rgba(16,185,129,0.08); }
+  .st-carol { color: var(--carol); border-color: var(--carol); background: rgba(245,158,11,0.08); }
+  .st-bleed { color: var(--bleed); border-color: var(--bleed); background: rgba(255,77,77,0.08); animation: pulse 0.8s infinite; }
+
+  .chat-area {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    max-height: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg {
+    border-radius: 6px;
+    padding: 8px 11px;
+    font-size: 11.5px;
+    max-width: 92%;
+    line-height: 1.5;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .msg-user {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    align-self: flex-end;
+    color: var(--text);
+  }
+  .msg-agent {
+    background: rgba(79,172,254,0.06);
+    border: 1px solid rgba(79,172,254,0.15);
+    align-self: flex-start;
+    color: #94a3b8;
+  }
+  .msg-bleed {
+    background: rgba(255,77,77,0.08);
+    border: 1px solid rgba(255,77,77,0.3);
+    align-self: flex-start;
+    color: #fca5a5;
+  }
+  .msg-label {
+    font-size: 9.5px;
+    color: var(--muted);
+    margin-bottom: 2px;
+    letter-spacing: 0.3px;
+  }
+  .msg-label.bleed-label { color: var(--red); }
+  .bleed-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    background: rgba(255,77,77,0.1);
+    border: 1px solid rgba(255,77,77,0.3);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--red);
+    margin-bottom: 3px;
+  }
+
+  /* ── SHARED MEMORY BUS ── */
+  .memory-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title span { color: var(--text); font-weight: 600; }
+
+  .memory-bus {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .memory-col { }
+  .memory-col-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .memory-entries { display: flex; flex-direction: column; gap: 6px; }
+  .mem-entry {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+  }
+  .mem-entry.leaked {
+    border-color: var(--bleed);
+    background: rgba(255,77,77,0.06);
+    color: #fca5a5;
+  }
+  .mem-key { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+  .mem-val { color: var(--text); }
+  .mem-val.val-alice { color: var(--alice); }
+  .mem-val.val-bob   { color: var(--bob); }
+  .mem-val.val-carol { color: var(--carol); }
+  .mem-val.val-bleed { color: var(--red); }
+
+  .bus-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 24px;
+  }
+  .bus-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .bus-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    text-align: center;
+    min-width: 110px;
+    transition: all 0.3s;
+  }
+  .bus-box.active {
+    border-color: var(--orange);
+    box-shadow: 0 0 8px rgba(255,152,0,0.2);
+  }
+  .bus-box.bleeding {
+    border-color: var(--red);
+    box-shadow: 0 0 12px rgba(255,77,77,0.25);
+    animation: busBleed 1.5s infinite;
+  }
+  @keyframes busBleed {
+    0%,100% { box-shadow: 0 0 8px rgba(255,77,77,0.2); }
+    50% { box-shadow: 0 0 20px rgba(255,77,77,0.5); }
+  }
+  .bus-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .bus-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .bus-stat { font-size: 11px; margin-top: 6px; color: var(--muted); }
+  .bus-stat.danger { color: var(--red); }
+
+  .flow-arrow {
+    font-size: 14px;
+    color: var(--border2);
+    transition: color 0.3s;
+  }
+  .flow-arrow.active { color: var(--orange); }
+  .flow-arrow.bleeding { color: var(--red); }
+
+  /* ── BLEED EVENT LOG ── */
+  .bleed-log {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .log-entries { display: flex; flex-direction: column; gap: 6px; }
+  .log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    animation: fadeIn 0.3s ease;
+  }
+  .log-entry.info {
+    background: rgba(79,172,254,0.05);
+    border: 1px solid rgba(79,172,254,0.1);
+    color: #94a3b8;
+  }
+  .log-entry.bleed-event {
+    background: rgba(255,77,77,0.07);
+    border: 1px solid rgba(255,77,77,0.2);
+    color: #fca5a5;
+  }
+  .log-entry.warn {
+    background: rgba(255,152,0,0.06);
+    border: 1px solid rgba(255,152,0,0.15);
+    color: #fdba74;
+  }
+  .log-entry.safe {
+    background: rgba(0,230,118,0.05);
+    border: 1px solid rgba(0,230,118,0.1);
+    color: #86efac;
+  }
+  .log-time { color: var(--muted); font-size: 10px; flex-shrink: 0; padding-top: 1px; }
+  .log-icon { flex-shrink: 0; }
+
+  /* ── BOTTOM GRID ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* ── DEFENSE PANEL ── */
+  .defense-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .fix-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .fix-item:last-child { border-bottom: none; }
+  .fix-icon { flex-shrink: 0; font-size: 14px; }
+  .fix-text strong { color: var(--green); display: block; margin-bottom: 2px; }
+  .fix-text span { color: var(--muted); font-size: 11px; }
+
+  /* ── STATS PANEL ── */
+  .stats-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .stat-val.danger { color: var(--red); }
+  .stat-val.safe   { color: var(--green); }
+  .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  .bleed-meter {
+    margin-top: 12px;
+  }
+  .meter-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 5px;
+    color: var(--muted);
+  }
+  .meter-bar {
+    height: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--red));
+    border-radius: 4px;
+    transition: width 0.6s ease;
+    width: 0%;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 11px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .footer-link:hover { color: var(--blue); }
+  .tagline {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .tagline strong { color: var(--red); font-style: normal; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="series-badge">AGENT FAILURE SERIES #20</div>
+    <div class="title-block">
+      <h1><span class="bleed-title">BLEEDTHROUGH</span></h1>
+      <div class="subtitle">Multi-Tenant Context Isolation Failure · Interactive Simulator</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">3 tenants isolated</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- EXPLANATION -->
+  <div class="explanation">
+    <div class="exp-icon">⚠️</div>
+    <div class="exp-text">
+      <p><strong>The failure:</strong> A production AI support agent serves hundreds of customers on a shared deployment.
+      The agent uses an in-memory context cache to speed up responses — keyed on session tokens.
+      Under load, a cache key collision causes <strong>User A's conversation state to be read during User B's session</strong>.
+      The agent doesn't notice. It starts referencing User A's data in responses to User B.
+      User B sees another customer's email, account details, and billing info in their chat window.</p>
+      <p style="margin-top:6px">This is <strong>real</strong>: tracked in openclaw/openclaw issue #15990, reported in shared vector DBs (AI Weekly, May 2026), and documented in multiple production post-mortems. The fix requires tenant namespacing at every state layer — context, memory, tool results, and cache.</p>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="btn btn-primary" onclick="startSessions()" id="btnStart">▶ Start Sessions</button>
+    <button class="btn btn-danger" onclick="triggerBleed()" id="btnBleed" disabled>⚡ Apply Load → Trigger Bleed</button>
+    <button class="btn btn-ghost" onclick="resetAll()" id="btnReset" disabled>↺ Reset</button>
+    <div class="mode-selector">
+      <span style="font-size:10px;color:var(--muted);padding:0 4px">Mode:</span>
+      <button class="mode-btn active" onclick="setMode('vulnerable')" id="modeVuln">Vulnerable</button>
+      <button class="mode-btn" onclick="setMode('protected')" id="modeProt">Protected</button>
+    </div>
+    <span id="modeDesc" style="font-size:11px;color:var(--muted);flex:1">Shared context cache — no tenant namespacing</span>
+  </div>
+
+  <!-- THREE USERS -->
+  <div class="users-grid">
+
+    <!-- ALICE -->
+    <div class="user-panel" id="panelAlice">
+      <div class="user-header">
+        <div class="user-info">
+          <div class="user-avatar av-alice">A</div>
+          <div>
+            <div class="user-name">Alice Chen</div>
+            <div class="user-email">alice@acme.com · Enterprise Plan</div>
+          </div>
+        </div>
+        <div class="session-tag st-alice" id="tagAlice">session:7a9f</div>
+      </div>
+      <div class="chat-area" id="chatAlice"></div>
+    </div>
+
+    <!-- BOB -->
+    <div class="user-panel" id="panelBob">
+      <div class="user-header">
+        <div class="user-info">
+          <div class="user-avatar av-bob">B</div>
+          <div>
+            <div class="user-name">Bob Martínez</div>
+            <div class="user-email">bob@startup.io · Starter Plan</div>
+          </div>
+        </div>
+        <div class="session-tag st-bob" id="tagBob">session:3c2e</div>
+      </div>
+      <div class="chat-area" id="chatBob"></div>
+    </div>
+
+    <!-- CAROL -->
+    <div class="user-panel" id="panelCarol">
+      <div class="user-header">
+        <div class="user-info">
+          <div class="user-avatar av-carol">C</div>
+          <div>
+            <div class="user-name">Carol Wu</div>
+            <div class="user-email">carol@corp.co · Pro Plan</div>
+          </div>
+        </div>
+        <div class="session-tag st-carol" id="tagCarol">session:f81b</div>
+      </div>
+      <div class="chat-area" id="chatCarol"></div>
+    </div>
+
+  </div>
+
+  <!-- SHARED MEMORY BUS -->
+  <div class="memory-section">
+    <div class="section-title">⬡ SHARED CONTEXT CACHE — <span id="cacheStatus">ISOLATED</span></div>
+    <div class="memory-bus">
+      <!-- Left: Alice's keys in cache -->
+      <div class="memory-col">
+        <div class="memory-col-label">Alice's context in cache</div>
+        <div class="memory-entries" id="memAlice">
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">user_id</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">account</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">plan</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">card_last4</span><span class="mem-val">—</span></div>
+        </div>
+      </div>
+      <!-- Center: Cache bus -->
+      <div class="bus-center">
+        <div class="bus-label">Agent</div>
+        <div class="bus-box" id="busBox">
+          <div class="bus-name">LLM Core</div>
+          <div class="bus-sub">shared deployment</div>
+          <div class="bus-stat" id="busStat">waiting</div>
+        </div>
+        <div class="bus-label" style="margin-top:8px">Cache Layer</div>
+        <div class="flow-arrow" id="arrowLeft">⟵</div>
+        <div class="bus-box" id="cacheBox" style="margin-top:0">
+          <div class="bus-name" id="cacheName">Redis Cache</div>
+          <div class="bus-sub" id="cacheSub">no tenant namespace</div>
+          <div class="bus-stat" id="cacheStat">0 keys</div>
+        </div>
+        <div class="flow-arrow" id="arrowRight">⟶</div>
+      </div>
+      <!-- Right: Bob's cache reads -->
+      <div class="memory-col">
+        <div class="memory-col-label">Bob's cache reads</div>
+        <div class="memory-entries" id="memBob">
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">user_id</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">account</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">plan</span><span class="mem-val">—</span></div>
+          <div class="mem-entry" style="opacity:0.4"><span class="mem-key">card_last4</span><span class="mem-val">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLEED EVENT LOG -->
+  <div class="bleed-log">
+    <div class="section-title">📋 EVENT LOG — <span id="logStatus">waiting to start</span></div>
+    <div class="log-entries" id="logEntries">
+      <div class="log-entry info">
+        <span class="log-time">00:00</span>
+        <span class="log-icon">ℹ</span>
+        <span>Simulator ready. Press "Start Sessions" to open three concurrent agent sessions.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- DEFENSE PANEL -->
+    <div class="defense-panel">
+      <div class="section-title" style="margin-bottom:12px">🛡 HOW TO FIX IT — <span id="fixTitle">tenant isolation layers</span></div>
+      <div class="fix-item">
+        <div class="fix-icon">🔑</div>
+        <div class="fix-text">
+          <strong>Namespace every cache key</strong>
+          <span>Prefix: <code style="color:var(--blue)">ctx:{tenant_id}:{session_id}:*</code> — NEVER bare session tokens as keys</span>
+        </div>
+      </div>
+      <div class="fix-item">
+        <div class="fix-icon">🏗</div>
+        <div class="fix-text">
+          <strong>Separate vector namespaces per tenant</strong>
+          <span>Each tenant gets its own Pinecone/Weaviate namespace — not a filter on a shared index</span>
+        </div>
+      </div>
+      <div class="fix-item">
+        <div class="fix-icon">🔒</div>
+        <div class="fix-text">
+          <strong>Bind context objects to user_id</strong>
+          <span>Every context retrieval validates <code style="color:var(--blue)">user_id == session.user_id</code> before returning</span>
+        </div>
+      </div>
+      <div class="fix-item">
+        <div class="fix-icon">📊</div>
+        <div class="fix-text">
+          <strong>Log cross-tenant access attempts</strong>
+          <span>If context retrieval returns data for a different tenant_id: immediate alert + block, never silently pass through</span>
+        </div>
+      </div>
+      <div class="fix-item">
+        <div class="fix-icon">⏱</div>
+        <div class="fix-text">
+          <strong>Short TTLs on session context</strong>
+          <span>Cache TTL ≤ 60s per session — stale cross-tenant data decays fast, reducing blast radius</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS PANEL -->
+    <div class="stats-panel">
+      <div class="section-title" style="margin-bottom:12px">📈 SESSION METRICS</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val safe" id="statIsolated">3</div>
+          <div class="stat-lbl">tenants isolated</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val danger" id="statBleedEvents">0</div>
+          <div class="stat-lbl">bleed events</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statCacheKeys">0</div>
+          <div class="stat-lbl">cache keys</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val danger" id="statDataExposed">0</div>
+          <div class="stat-lbl">exposed fields</div>
+        </div>
+      </div>
+      <div class="bleed-meter">
+        <div class="meter-label">
+          <span>Context contamination</span>
+          <span id="meterPct">0%</span>
+        </div>
+        <div class="meter-bar">
+          <div class="meter-fill" id="meterFill"></div>
+        </div>
+      </div>
+      <div style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.7">
+        <div>Mode: <span id="modeStatLabel" style="color:var(--text)">Vulnerable (shared cache)</span></div>
+        <div>Sessions active: <span id="statActive" style="color:var(--text)">0</span></div>
+        <div>Under load: <span id="statLoad" style="color:var(--text)">false</span></div>
+        <div id="protectedNote" style="display:none;margin-top:6px;color:var(--green)">
+          ✓ Protected mode: tenant namespacing active
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-left">
+    <a href="https://github.com/RLASAF12/bleedthrough" target="_blank" class="footer-link">⬡ GitHub</a>
+    <a href="https://rlasaf12.github.io/orphancall/" target="_blank" class="footer-link">← #19 ORPHANCALL</a>
+    <a href="https://rlasaf12.github.io" target="_blank" class="footer-link">◈ Full Series</a>
+  </div>
+  <div class="tagline"><strong>BLEEDTHROUGH</strong> — Three users. One agent. Zero isolation.</div>
+</div>
+
+<script>
+// ── STATE ──
+let mode = 'vulnerable';
+let sessionActive = false;
+let bleedTriggered = false;
+let bleedEvents = 0;
+let cacheKeys = 0;
+let exposedFields = 0;
+let startTime = null;
+let timers = [];
+
+function elapsed() {
+  if (!startTime) return '00:00';
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+
+function addLog(type, icon, msg) {
+  const el = document.getElementById('logEntries');
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.innerHTML = `<span class="log-time">${elapsed()}</span><span class="log-icon">${icon}</span><span>${msg}</span>`;
+  el.appendChild(div);
+  el.parentElement.scrollTop = el.parentElement.scrollHeight;
+}
+
+function addMsg(chatId, type, text, label) {
+  const chat = document.getElementById(chatId);
+  const div = document.createElement('div');
+  div.className = `msg msg-${type}`;
+  if (label) div.innerHTML = `<div class="msg-label ${type === 'bleed' ? 'bleed-label' : ''}">${label}</div>${text}`;
+  else div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addBleedMsg(chatId, originUser, text) {
+  const chat = document.getElementById(chatId);
+  const div = document.createElement('div');
+  div.className = 'msg msg-bleed';
+  div.innerHTML = `
+    <div class="bleed-indicator">⚠ CONTEXT BLEED — data from ${originUser}</div>
+    <div class="msg-label bleed-label">AGENT (contaminated)</div>
+    ${text}
+  `;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function updateMemAlice(vals) {
+  const keys = ['user_id','account','plan','card_last4'];
+  const colors = ['val-alice','val-alice','val-alice','val-alice'];
+  const mem = document.getElementById('memAlice');
+  mem.innerHTML = keys.map((k,i) => `
+    <div class="mem-entry">
+      <span class="mem-key">${k}</span>
+      <span class="mem-val ${colors[i]}">${vals[i] || '—'}</span>
+    </div>
+  `).join('');
+}
+
+function updateMemBob(vals, leaked) {
+  const keys = ['user_id','account','plan','card_last4'];
+  const mem = document.getElementById('memBob');
+  mem.innerHTML = keys.map((k,i) => `
+    <div class="mem-entry ${leaked && leaked[i] ? 'leaked' : ''}">
+      <span class="mem-key">${k}</span>
+      <span class="mem-val ${leaked && leaked[i] ? 'val-bleed' : 'val-bob'}">${vals[i] || '—'}</span>
+    </div>
+  `).join('');
+}
+
+function updateBus(state) {
+  const box = document.getElementById('busBox');
+  const cacheBox = document.getElementById('cacheBox');
+  const arrowL = document.getElementById('arrowLeft');
+  const arrowR = document.getElementById('arrowRight');
+  const cacheStat = document.getElementById('cacheStat');
+  const busStat = document.getElementById('busStat');
+
+  box.className = `bus-box ${state === 'bleeding' ? 'bleeding' : state === 'active' ? 'active' : ''}`;
+  cacheBox.className = `bus-box ${state === 'bleeding' ? 'bleeding' : state === 'active' ? 'active' : ''}`;
+  arrowL.className = `flow-arrow ${state === 'bleeding' ? 'bleeding' : state === 'active' ? 'active' : ''}`;
+  arrowR.className = `flow-arrow ${state === 'bleeding' ? 'bleeding' : state === 'active' ? 'active' : ''}`;
+  cacheStat.textContent = `${cacheKeys} keys`;
+  busStat.textContent = state === 'bleeding' ? '⚠ cross-tenant read' : state === 'active' ? 'processing' : 'idle';
+  busStat.className = `bus-stat ${state === 'bleeding' ? 'danger' : ''}`;
+}
+
+function updateStats() {
+  const isol = bleedEvents > 0 ? 3 - Math.min(3, bleedEvents) : 3;
+  document.getElementById('statIsolated').textContent = isol;
+  document.getElementById('statIsolated').className = `stat-val ${isol < 3 ? 'danger' : 'safe'}`;
+  document.getElementById('statBleedEvents').textContent = bleedEvents;
+  document.getElementById('statCacheKeys').textContent = cacheKeys;
+  document.getElementById('statDataExposed').textContent = exposedFields;
+  const pct = Math.min(100, bleedEvents * 25);
+  document.getElementById('meterFill').style.width = pct + '%';
+  document.getElementById('meterPct').textContent = pct + '%';
+  document.getElementById('statActive').textContent = sessionActive ? '3' : '0';
+  document.getElementById('statLoad').textContent = bleedTriggered ? 'true (900 req/min)' : 'false';
+}
+
+function t(fn, ms) {
+  const id = setTimeout(fn, ms);
+  timers.push(id);
+  return id;
+}
+
+// ── START SESSIONS ──
+function startSessions() {
+  if (sessionActive) return;
+  sessionActive = true;
+  startTime = Date.now();
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnBleed').disabled = false;
+  document.getElementById('btnReset').disabled = false;
+  document.getElementById('logStatus').textContent = 'running';
+  document.getElementById('statusText').textContent = '3 sessions active';
+
+  // Clear chats
+  ['chatAlice','chatBob','chatCarol'].forEach(id => document.getElementById(id).innerHTML = '');
+
+  addLog('info','▶','Three concurrent agent sessions opened on shared deployment.');
+  addLog('info','⬡',`Mode: ${mode === 'vulnerable' ? 'VULNERABLE — shared cache, no tenant namespacing' : 'PROTECTED — per-tenant namespaced cache'}`);
+
+  // Alice's session — builds up sensitive context
+  t(() => {
+    addMsg('chatAlice','user','Hi, I need to update my billing card.','USER');
+    addLog('info','A','Alice (7a9f): "Hi, I need to update my billing card."');
+  }, 400);
+  t(() => {
+    addMsg('chatAlice','agent','Hello Alice! I can help you update the card on your Enterprise account. Your current card ends in **4242**. What would you like to change it to?','AGENT');
+    cacheKeys += 4;
+    updateMemAlice(['alice@acme.com','Acme Corp','Enterprise','4242']);
+    updateBus('active');
+    updateStats();
+    addLog('info','💾','Cache write: alice@acme.com context → {user_id, account, plan, card_last4:4242}');
+  }, 1500);
+
+  t(() => {
+    addMsg('chatAlice','user','Actually first — can you confirm my account email?','USER');
+    addMsg('chatBob','user','Hey, quick question: what plan am I on?','USER');
+    addLog('info','B','Bob (3c2e): "Hey, quick question: what plan am I on?"');
+  }, 2400);
+
+  t(() => {
+    addMsg('chatAlice','agent','Of course! Your account email is **alice@acme.com** on the Enterprise plan.','AGENT');
+    cacheKeys += 2;
+    updateStats();
+    addLog('info','💾','Cache updated: alice@acme.com session context refreshed');
+  }, 3200);
+
+  t(() => {
+    addMsg('chatBob','agent',"You're on the Starter Plan, Bob. Monthly billing, $29/mo. Is there anything else you'd like to know?", 'AGENT');
+    cacheKeys += 3;
+    updateMemBob(['bob@startup.io','Startup Inc','Starter','—'], null);
+    updateStats();
+    addLog('info','B','Bob\'s context loaded correctly — Starter plan, no card data');
+  }, 4000);
+
+  t(() => {
+    addMsg('chatCarol','user','Can you check my invoice from last month?','USER');
+    addLog('info','C','Carol (f81b): "Can you check my invoice from last month?"');
+  }, 4500);
+
+  t(() => {
+    addMsg('chatCarol','agent',"Sure Carol! Your Pro Plan invoice from July: $149.00, paid on 2026-07-01. No outstanding balance.", 'AGENT');
+    cacheKeys += 3;
+    updateStats();
+    addLog('info','C','Carol\'s context loaded — Pro plan, invoice data');
+  }, 5300);
+
+  if (mode === 'vulnerable') {
+    addLog('warn','⚠',`Shared cache now holds ${cacheKeys + 3} keys — no tenant namespace isolation. Under load, key collision probability rises.`);
+    document.getElementById('cacheStatus').textContent = 'SHARED — NO TENANT NAMESPACE';
+  } else {
+    addLog('safe','✓','Protected mode: each session namespaced as ctx:{tenant_id}:{session_id}:* — no shared key space');
+    document.getElementById('cacheStatus').textContent = 'NAMESPACED — ISOLATED';
+  }
+}
+
+// ── TRIGGER BLEED ──
+function triggerBleed() {
+  if (!sessionActive || bleedTriggered) return;
+  bleedTriggered = true;
+  document.getElementById('btnBleed').disabled = true;
+  document.getElementById('statLoad').textContent = 'true (900 req/min)';
+
+  addLog('warn','⚡','Load spike: 900 req/min — cache key generation rate exceeds TTL refresh cycle');
+
+  if (mode === 'protected') {
+    t(() => {
+      addLog('safe','✓','Protected mode: cache namespace check triggered — ctx:bob_startup:3c2e:* vs ctx:alice_acme:7a9f:* — no collision possible');
+      addLog('safe','✓','Protected mode: all 3 tenants remain fully isolated under load');
+      document.getElementById('statusText').textContent = '✓ Protected — no bleed';
+      document.getElementById('statusDot').className = 'dot';
+      document.getElementById('protectedNote').style.display = 'block';
+      addMsg('chatBob','agent',"You're on the Starter Plan. Your account email is bob@startup.io. Everything looks fine!", 'AGENT');
+      updateStats();
+    }, 800);
+    return;
+  }
+
+  // VULNERABLE MODE — BLEED SEQUENCE
+  t(() => {
+    addLog('bleed-event','🔴','CACHE KEY COLLISION: ctx:session_token maps to same bucket under high concurrency');
+    document.getElementById('statusDot').className = 'dot red';
+    document.getElementById('statusText').textContent = '⚠ BLEED DETECTED';
+    updateBus('bleeding');
+    document.getElementById('cacheStatus').textContent = '⚠ KEY COLLISION — CROSS-TENANT READ';
+  }, 600);
+
+  t(() => {
+    addLog('bleed-event','🔴','Agent reads Bob\'s context → cache returns Alice\'s session data (stale, wrong tenant)');
+    bleedEvents++;
+    exposedFields += 4;
+    updateMemBob(
+      ['alice@acme.com','Acme Corp','Enterprise','4242'],
+      [true, true, true, true]
+    );
+    document.getElementById('panelBob').classList.add('bleeding');
+    document.getElementById('tagBob').textContent = '⚠ bleed:7a9f→3c2e';
+    document.getElementById('tagBob').className = 'session-tag st-bleed';
+    updateStats();
+  }, 1200);
+
+  t(() => {
+    addBleedMsg('chatBob',
+      'alice@acme.com',
+      "Of course! Your account email is <strong>alice@acme.com</strong> on the <strong>Enterprise</strong> plan. Your current card on file ends in <strong>4242</strong>."
+    );
+    addLog('bleed-event','🔴','BOB RECEIVES ALICE\'S DATA: email, plan type, and card_last4 exposed in Bob\'s chat window');
+  }, 2000);
+
+  t(() => {
+    addMsg('chatBob','user','Wait what? alice@acme.com? I\'m Bob. And I\'m not on Enterprise.','USER');
+    addLog('warn','⚠','Bob reports discrepancy — users notice the bleed. Agent has no mechanism to detect or correct it.');
+  }, 3200);
+
+  t(() => {
+    addBleedMsg('chatBob',
+      'alice@acme.com',
+      "I apologize for the confusion, Bob. Let me recheck — ah, I see you're looking at account <strong>Acme Corp</strong>, Enterprise tier. Is there anything else you'd like to update on this account?"
+    );
+    addLog('bleed-event','🔴','SECOND BLEED RESPONSE: Agent doubles down — cache still returning Alice\'s context. Bob sees Acme Corp data again.');
+    bleedEvents++;
+    exposedFields += 2;
+    updateStats();
+  }, 4400);
+
+  // Carol also sees some bleed
+  t(() => {
+    addLog('bleed-event','🔴','Cache contamination spreading — Carol\'s session cache now partially overlaps with Alice\'s context');
+    document.getElementById('panelCarol').classList.add('bleeding');
+    document.getElementById('tagCarol').textContent = '⚠ partial bleed';
+    document.getElementById('tagCarol').className = 'session-tag st-bleed';
+    bleedEvents++;
+    exposedFields++;
+    updateStats();
+    updateBus('bleeding');
+  }, 5000);
+
+  t(() => {
+    addBleedMsg('chatCarol',
+      'alice@acme.com',
+      "Looking at your July invoice — I see your Enterprise plan was billed at the $399/mo rate to the card ending in 4242. Does that match your records?"
+    );
+    addLog('bleed-event','🔴','CAROL RECEIVES ALICE\'S BILLING RATE: $399/mo Enterprise price exposed to Carol (Pro plan user)');
+    exposedFields += 2;
+    updateStats();
+  }, 5800);
+
+  t(() => {
+    addLog('bleed-event','🔴',`INCIDENT SUMMARY: ${bleedEvents} bleed events · ${exposedFields} fields exposed across tenant boundaries · 2 of 3 tenants contaminated`);
+    addLog('warn','⚠','The agent never detected this. It kept responding with full confidence. No exception thrown. No alert fired. Standard log shows zero errors.');
+    document.getElementById('logStatus').textContent = '⚠ INCIDENT ACTIVE';
+  }, 7000);
+}
+
+// ── MODE SWITCH ──
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeVuln').className = `mode-btn ${m === 'vulnerable' ? 'active' : ''}`;
+  document.getElementById('modeProt').className = `mode-btn ${m === 'protected' ? 'active' : ''}`;
+  document.getElementById('modeDesc').textContent = m === 'vulnerable'
+    ? 'Shared context cache — no tenant namespacing'
+    : 'Per-tenant namespaced cache — ctx:{tenant_id}:{session_id}:*';
+  document.getElementById('modeStatLabel').textContent = m === 'vulnerable'
+    ? 'Vulnerable (shared cache)' : 'Protected (tenant namespaced)';
+  document.getElementById('cacheName').textContent = m === 'vulnerable' ? 'Redis Cache' : 'Redis (namespaced)';
+  document.getElementById('cacheSub').textContent = m === 'vulnerable' ? 'no tenant namespace' : 'ctx:{tenant}:{session}:*';
+}
+
+// ── RESET ──
+function resetAll() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  sessionActive = false;
+  bleedTriggered = false;
+  bleedEvents = 0;
+  cacheKeys = 0;
+  exposedFields = 0;
+  startTime = null;
+
+  ['chatAlice','chatBob','chatCarol'].forEach(id => document.getElementById(id).innerHTML = '');
+  document.getElementById('logEntries').innerHTML = '<div class="log-entry info"><span class="log-time">00:00</span><span class="log-icon">ℹ</span><span>Simulator reset. Press "Start Sessions" to run again.</span></div>';
+
+  ['panelAlice','panelBob','panelCarol'].forEach(id => document.getElementById(id).classList.remove('bleeding'));
+
+  document.getElementById('tagBob').textContent = 'session:3c2e';
+  document.getElementById('tagBob').className = 'session-tag st-bob';
+  document.getElementById('tagCarol').textContent = 'session:f81b';
+  document.getElementById('tagCarol').className = 'session-tag st-carol';
+
+  updateMemAlice(['—','—','—','—']);
+  updateMemBob(['—','—','—','—'], null);
+
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnBleed').disabled = true;
+  document.getElementById('statusDot').className = 'dot';
+  document.getElementById('statusText').textContent = '3 tenants isolated';
+  document.getElementById('logStatus').textContent = 'waiting to start';
+  document.getElementById('cacheStatus').textContent = 'ISOLATED';
+  document.getElementById('protectedNote').style.display = 'none';
+  document.getElementById('statLoad').textContent = 'false';
+  updateBus('idle');
+  updateStats();
+}
+
+// init
+updateMemAlice(['—','—','—','—']);
+updateMemBob(['—','—','—','—'], null);
+updateStats();
+</script>
+</body>
+</html>
