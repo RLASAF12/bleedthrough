@@ -1,3 +1,5 @@
+> **Archived.** This repo moved to [RLASAF12/agent-failure-lab](https://github.com/RLASAF12/agent-failure-lab/tree/main/bleedthrough) (folder `bleedthrough/`, full history preserved). Archived 2026-10-04.
+
 # BLEEDTHROUGH
 ### Agent Failure Series #20
 
